@@ -23,7 +23,7 @@ export default function WelcomeScreen() {
         <Text style={styles.sub}>BOUTIQUE</Text>
         <Text style={styles.line}>Client orders, measurements and designers for your boutique, in one place.</Text>
       </View>
-      <View>
+      <View style={styles.actions}>
         <Button title="Start free trial" onPress={() => router.push('/sign-up')} />
         <Button title="Log in" variant="secondary" onPress={() => router.push('/log-in')} style={{ marginTop: 12 }} />
         <Text style={styles.small}>{TRIAL_DAYS} days free. No card needed.</Text>
@@ -34,12 +34,15 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: Colors.background },
+  // Logo, line and buttons sit together in the middle. Nothing is pinned to the bottom
+  // edge, so a browser toolbar drawn over the page can never hide the buttons.
   container: {
     flexGrow: 1,
     paddingHorizontal: Spacing.gutter + 4,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
-  brand: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 },
+  brand: { alignItems: 'center' },
+  actions: { marginTop: 48 },
   word: {
     fontFamily: Fonts.display,
     fontSize: 40,
