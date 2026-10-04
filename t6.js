@@ -1,0 +1,10 @@
+const { chromium, devices } = require('playwright');
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium'});const ctx=await b.newContext({...devices['iPhone 13']});const p=await ctx.newPage();
+const errs=[];p.on('pageerror',e=>errs.push(e.message));p.on('response',r=>{if(r.status()>=400&&!r.url().endsWith('favicon.ico'))errs.push(r.status()+' '+r.url())});
+await p.goto('http://localhost:8101/sahani-boutique/',{waitUntil:'networkidle'});await p.waitForTimeout(4500);
+await p.screenshot({path:'/tmp/claude-0/ph1.png'});
+await p.getByText('Fatima Al-Rashid').first().click();await p.waitForTimeout(1500);console.log('url',p.url());
+await p.screenshot({path:'/tmp/claude-0/ph2.png'});
+await p.goto('http://localhost:8101/sahani-boutique/order/o5',{waitUntil:'networkidle'});await p.waitForTimeout(4500);
+console.log('deep link:',(await p.evaluate(()=>document.body.innerText.slice(0,60))).replace(/\n/g,' | '));
+console.log(errs);await b.close();})();

@@ -1,0 +1,12 @@
+const fs=require('fs'),path=require('path');
+const d=process.argv[2];let html=fs.readFileSync(d+'/index.html','utf8');
+const src=html.match(/<script src="([^"]+)" defer><\/script>/)[1];
+let js=fs.readFileSync(d+src,'utf8');
+const mime={'.png':'image/png','.ttf':'font/ttf','.jpg':'image/jpeg'};
+js=js.replace(/"(\/assets\/[^"]+)"/g,(m,p)=>{const f=d+p;if(!fs.existsSync(f))return m;return JSON.stringify('data:'+mime[path.extname(f)]+';base64,'+fs.readFileSync(f).toString('base64'));});
+js=js.replace(/<\/script/g,'<\\/script');
+const pre=`<script>try{if(location.pathname!=='/')history.replaceState(null,'','/');}catch(e){}</script>`;
+const css=`<style>html{background:#1a1714}@media(min-width:500px){#root{max-width:430px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.4)}}</style>`;
+html=html.replace('<title>BoutiqueOS</title>','<title>Sahani Boutique</title>').replace(/<link rel="icon"[^>]*>/,'').replace('</head>',css+pre+'</head>');
+html=html.replace(/<script src="[^"]+" defer><\/script>/,()=>'<script>'+js+'</script>');
+fs.writeFileSync(process.argv[3],html);console.log((html.length/1e6).toFixed(1)+'MB');
