@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { OrderStatus } from '@/types';
 import {
   BorderRadius,
@@ -56,6 +57,7 @@ export default function OrderDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getOrderWithRelations, updateOrderStatus, addNote, updateNote, deleteNote } = useApp();
+  const { locked } = useAuth();
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [pastHero, setPastHero] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -277,7 +279,7 @@ export default function OrderDetailScreen() {
           )}
           <NotesSection
             notes={order.notes}
-            onAddNote={(content) => addNote(order.id, content)}
+            onAddNote={(content) => (locked ? router.push({ pathname: '/account/plans', params: { locked: '1' } }) : addNote(order.id, content))}
             onUpdateNote={updateNote}
             onDeleteNote={deleteNote}
           />

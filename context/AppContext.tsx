@@ -1,5 +1,7 @@
 import { withUnit } from '@/components/measure/figure';
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { router } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
 import {
   Attachment,
   BoutiqueSettings,
@@ -316,6 +318,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNotificationPreferences((prev) => ({ ...prev, ...prefs }));
   }, []);
 
+  // When the trial or plan has ended the boutique is read-only. Anything that would change
+  // an order or designer opens the plans screen instead. Nothing is deleted.
+  const { locked } = useAuth();
+  const lock = useCallback(
+    <A extends unknown[]>(fn: (...args: A) => void) =>
+      (...args: A) => {
+        if (locked) {
+          router.push({ pathname: '/account/plans', params: { locked: '1' } });
+          return;
+        }
+        fn(...args);
+      },
+    [locked]
+  );
+  const guarded = useMemo(
+    () => ({
+      updateOrderStatus: lock(updateOrderStatus),
+      deleteOrder: lock(deleteOrder),
+      updateNote: lock(updateNote),
+      deleteNote: lock(deleteNote),
+      updateDesigner: lock(updateDesigner),
+      archiveDesigner: lock(archiveDesigner),
+    }),
+    [lock, updateOrderStatus, deleteOrder, updateNote, deleteNote, updateDesigner, archiveDesigner]
+  );
+
   const value = useMemo(
     () => ({
       orders,
@@ -331,15 +359,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getOrderWithRelations,
       getOrdersWithRelations,
       createOrder,
-      updateOrderStatus,
-      deleteOrder,
+      updateOrderStatus: guarded.updateOrderStatus,
+      deleteOrder: guarded.deleteOrder,
       duplicateOrder,
       addNote,
-      updateNote,
-      deleteNote,
+      updateNote: guarded.updateNote,
+      deleteNote: guarded.deleteNote,
       addDesigner,
-      updateDesigner,
-      archiveDesigner,
+      updateDesigner: guarded.updateDesigner,
+      archiveDesigner: guarded.archiveDesigner,
       updateBoutiqueSettings,
       updateNotificationPreferences,
       activeDesigners,
@@ -370,6 +398,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateBoutiqueSettings,
       updateNotificationPreferences,
       activeDesigners,
+      guarded,
     ]
   );
 

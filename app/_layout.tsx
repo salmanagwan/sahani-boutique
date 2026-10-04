@@ -103,6 +103,9 @@ function AppStack() {
         <Stack.Screen name="order/[id]" />
         <Stack.Screen name="designer/add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="designer/[id]" />
+        <Stack.Screen name="account/plans" />
+        <Stack.Screen name="account/checkout" />
+        <Stack.Screen name="account/trial-ended" options={{ presentation: 'modal', animation: 'fade' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="(auth)" />

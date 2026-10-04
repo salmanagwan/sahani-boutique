@@ -3,6 +3,8 @@
 // the preview link. When Supabase is set up, these functions are what get swapped for real calls.
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
+import { addMonths } from 'date-fns';
+import { PlanId } from '@/constants/plans';
 
 export const TRIAL_DAYS = 15;
 const DAY = 24 * 60 * 60 * 1000;
@@ -17,7 +19,23 @@ export interface Account {
   verified: boolean;
   /** ISO time the email was verified and the trial began. */
   trialStartedAt?: string;
+  plan?: Subscription;
+  /** Trial reminders already shown (3 and 1 days left). */
+  remindersSeen?: number[];
 }
+
+export interface Subscription {
+  id: PlanId;
+  startedAt: string;
+  renewsAt: string;
+  /** Cancelled: keeps working until renewsAt, then stops. */
+  cancelAtEnd?: boolean;
+  /** Plan switched to; it starts at renewsAt. */
+  nextId?: PlanId;
+}
+
+/** trial: free days left. active: paid. ended: trial or plan over, app is read-only. */
+export type AccessStatus = 'trial' | 'active' | 'ended';
 
 interface Stored {
   accounts: Record<string, Account>;
@@ -36,6 +54,17 @@ interface AuthValue {
   openLoginLink: (email: string) => Result;
   resetPassword: (email: string, password: string) => Result;
   logOut: () => void;
+  status: AccessStatus;
+  /** True when the trial or plan has ended: everything can be looked at, nothing changed. */
+  locked: boolean;
+  subscribe: (id: PlanId) => void;
+  /** Switch plan. The new one starts when the current period ends. */
+  changePlan: (id: PlanId) => void;
+  cancelPlan: () => void;
+  resumePlan: () => void;
+  markReminderSeen: (days: number) => void;
+  /** Preview only: jump the trial to a given number of days left (0 = ended). Clears any plan. */
+  previewSetDaysLeft: (days: number) => void;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -63,7 +92,13 @@ function save(data: Stored) {
   }
 }
 
-export const normaliseEmail = (email: string) => email.trim().toLowerCase();
+/** The moment the free trial runs out. */
+export function trialEndDate(acc: Account | null | undefined) {
+  if (!acc?.trialStartedAt) return null;
+  return new Date(new Date(acc.trialStartedAt).getTime() + TRIAL_DAYS * DAY);
+}
+
+export const normaliseEmail =(email: string) => email.trim().toLowerCase();
 export const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 export const PASSWORD_MIN = 8;
 
@@ -155,15 +190,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const account = data.session ? data.accounts[data.session] ?? null : null;
 
+  const patchAccount = useCallback(
+    (fn: (acc: Account) => Account) => {
+      if (!data.session || !data.accounts[data.session]) return;
+      const acc = data.accounts[data.session];
+      update({ ...data, accounts: { ...data.accounts, [data.session]: fn(acc) } });
+    },
+    [data, update]
+  );
+
   const trialDaysLeft = useMemo(() => {
     if (!account?.trialStartedAt) return TRIAL_DAYS;
     const used = Math.floor((Date.now() - new Date(account.trialStartedAt).getTime()) / DAY);
     return Math.max(0, TRIAL_DAYS - used);
   }, [account?.trialStartedAt]);
 
+  // A paid plan renews by itself unless cancelled. Once a cancelled plan's period is over,
+  // the boutique goes read-only, the same as an ended trial.
+  const plan = account?.plan;
+  const planLive = Boolean(plan && (!plan.cancelAtEnd || Date.now() < new Date(plan.renewsAt).getTime()));
+  const status: AccessStatus = planLive ? 'active' : plan ? 'ended' : trialDaysLeft > 0 ? 'trial' : 'ended';
+
+  const subscribe = useCallback(
+    (id: PlanId) =>
+      patchAccount((acc) => {
+        const months = { monthly: 1, quarterly: 3, half: 6, yearly: 12 }[id];
+        // Picked during the trial: the plan starts when the free days run out, so none are lost.
+        const end = trialEndDate(acc);
+        const start = end && end.getTime() > Date.now() ? end : new Date();
+        return { ...acc, plan: { id, startedAt: start.toISOString(), renewsAt: addMonths(start, months).toISOString() } };
+      }),
+    [patchAccount]
+  );
+
+  const changePlan = useCallback(
+    (id: PlanId) =>
+      patchAccount((acc) =>
+        acc.plan ? { ...acc, plan: { ...acc.plan, nextId: id === acc.plan.id ? undefined : id, cancelAtEnd: false } } : acc
+      ),
+    [patchAccount]
+  );
+
+  const cancelPlan = useCallback(
+    () => patchAccount((acc) => (acc.plan ? { ...acc, plan: { ...acc.plan, cancelAtEnd: true, nextId: undefined } } : acc)),
+    [patchAccount]
+  );
+
+  const resumePlan = useCallback(
+    () => patchAccount((acc) => (acc.plan ? { ...acc, plan: { ...acc.plan, cancelAtEnd: false } } : acc)),
+    [patchAccount]
+  );
+
+  const markReminderSeen = useCallback(
+    (days: number) =>
+      patchAccount((acc) => ({ ...acc, remindersSeen: Array.from(new Set([...(acc.remindersSeen ?? []), days])) })),
+    [patchAccount]
+  );
+
+  const previewSetDaysLeft = useCallback(
+    (days: number) =>
+      patchAccount((acc) => ({
+        ...acc,
+        trialStartedAt: new Date(Date.now() - (TRIAL_DAYS - days) * DAY - 60_000).toISOString(),
+        plan: undefined,
+        remindersSeen: [],
+      })),
+    [patchAccount]
+  );
+
   const value = useMemo<AuthValue>(
-    () => ({ account, trialDaysLeft, signUp, verifyEmail, logIn, openLoginLink, resetPassword, logOut }),
-    [account, trialDaysLeft, signUp, verifyEmail, logIn, openLoginLink, resetPassword, logOut]
+    () => ({
+      account,
+      trialDaysLeft,
+      signUp,
+      verifyEmail,
+      logIn,
+      openLoginLink,
+      resetPassword,
+      logOut,
+      status,
+      locked: status === 'ended',
+      subscribe,
+      changePlan,
+      cancelPlan,
+      resumePlan,
+      markReminderSeen,
+      previewSetDaysLeft,
+    }),
+    [account, trialDaysLeft, signUp, verifyEmail, logIn, openLoginLink, resetPassword, logOut, status, subscribe, changePlan, cancelPlan, resumePlan, markReminderSeen, previewSetDaysLeft]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

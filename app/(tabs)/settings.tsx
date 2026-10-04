@@ -3,7 +3,11 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '@/context/AppContext';
-import { useAuth } from '@/context/AuthContext';
+import { trialEndDate, useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
+import { format } from 'date-fns';
+import { getPlan, rupees } from '@/constants/plans';
+import { daysText } from '@/components/account/Trial';
 import { BorderRadius, Colors, ControlHeight, Fonts, Spacing, Typography } from '@/constants/theme';
 import { Input } from '@/components/ui/Input';
 import { TOP_BAR_GAP, TopBar } from '@/components/ui/TopBar';
@@ -22,7 +26,11 @@ export default function SettingsScreen() {
     updateBoutiqueSettings,
     updateNotificationPreferences,
   } = useApp();
-  const { account, trialDaysLeft, logOut } = useAuth();
+  const router = useRouter();
+  const { account, trialDaysLeft, logOut, status, cancelPlan, resumePlan, previewSetDaysLeft } = useAuth();
+  const plan = account?.plan;
+  const trialEnd = trialEndDate(account);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const [open, setOpen] = useState<Open>(null);
   const [headerH, setHeaderH] = useState(70);
@@ -61,7 +69,54 @@ export default function SettingsScreen() {
 
         {/* Account */}
         <Group title="Account">
-          <Row title="Free trial" detail="Choose a plan before it ends to keep adding orders" value={trialDaysLeft === 1 ? '1 day left' : `${trialDaysLeft} days left`} />
+          {status === 'trial' ? (
+            <Row
+              title="Free trial"
+              detail={trialEnd ? `Ends ${format(trialEnd, 'EEE d MMM')}. Pick a plan any time.` : undefined}
+              value={`${daysText(trialDaysLeft)} left`}
+              onPress={() => router.push('/account/plans')}
+              chevron
+            />
+          ) : status === 'ended' ? (
+            <Row
+              title={account?.plan ? 'Plan ended' : 'Trial ended'}
+              detail="Read only. Choose a plan to add or change orders."
+              onPress={() => router.push('/account/plans')}
+              chevron
+            />
+          ) : plan ? (
+            <>
+              <Row
+                title={`${getPlan(plan.id)?.name} plan`}
+                detail={
+                  plan.cancelAtEnd
+                    ? `Cancelled. Works until ${format(new Date(plan.renewsAt), 'd MMM yyyy')}.`
+                    : new Date(plan.startedAt).getTime() > Date.now()
+                      ? `Starts ${format(new Date(plan.startedAt), 'd MMM yyyy')}, when the trial ends`
+                      : plan.nextId
+                        ? `Changes to ${getPlan(plan.nextId)?.name} on ${format(new Date(plan.renewsAt), 'd MMM yyyy')}`
+                        : `Renews ${format(new Date(plan.renewsAt), 'd MMM yyyy')}`
+                }
+                value={rupees(getPlan(plan.id)!.price)}
+              />
+              <Row title="Change plan" onPress={() => router.push('/account/plans')} chevron />
+              {plan.cancelAtEnd ? (
+                <Row title="Turn renewal back on" onPress={resumePlan} chevron />
+              ) : (
+                <Row
+                  title="Cancel plan"
+                  detail={confirmCancel ? `Tap again to cancel. It keeps working until ${format(new Date(plan.renewsAt), 'd MMM yyyy')}.` : undefined}
+                  danger={confirmCancel}
+                  onPress={() => {
+                    if (confirmCancel) {
+                      cancelPlan();
+                      setConfirmCancel(false);
+                    } else setConfirmCancel(true);
+                  }}
+                />
+              )}
+            </>
+          ) : null}
           <Row title={account?.name || 'Signed in'} detail={account?.email} />
           <Pressable
             onPress={logOut}
@@ -164,6 +219,33 @@ export default function SettingsScreen() {
           />
         </Group>
 
+        {/* Preview only: lets the trial be tried without waiting 15 days. */}
+        <View style={styles.previewBox}>
+          <Text style={styles.previewLabel}>PREVIEW TOOLS</Text>
+          <Text style={styles.previewText}>Jump the free trial to any point to see what a boutique sees. Clears any plan.</Text>
+          <View style={styles.previewRow}>
+            {[
+              { label: '15 days left', days: 15 },
+              { label: '3 days left', days: 3 },
+              { label: '1 day left', days: 1 },
+              { label: 'Trial ended', days: 0 },
+            ].map((o) => (
+              <Pressable
+                key={o.days}
+                onPress={() => {
+                  previewSetDaysLeft(o.days);
+                  setConfirmCancel(false);
+                  router.navigate('/');
+                }}
+                style={({ pressed }) => [styles.previewChip, pressed && { backgroundColor: Colors.mist }]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.previewChipText}>{o.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         <Text style={styles.footer}>Sahani · version 2</Text>
       </ScrollView>
       <TopBar title="Settings" align="left" scrolled={scrolled} onHeight={setHeaderH} />
@@ -187,6 +269,8 @@ function Row({
   open,
   onPress,
   last,
+  chevron,
+  danger,
 }: {
   title: string;
   detail?: string;
@@ -194,6 +278,9 @@ function Row({
   open?: boolean;
   onPress?: () => void;
   last?: boolean;
+  /** Opens another screen instead of a panel. */
+  chevron?: boolean;
+  danger?: boolean;
 }) {
   return (
     <Pressable
@@ -202,11 +289,13 @@ function Row({
       style={({ pressed }) => [styles.row, !last && styles.rowBorder, pressed && { opacity: 0.7 }]}
     >
       <View style={styles.rowText}>
-        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={[styles.rowTitle, danger && { color: Colors.error }]}>{title}</Text>
         {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
       </View>
       {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-      {onPress ? (
+      {chevron ? (
+        <Icon name="caretRight" size={16} color={Colors.tertiaryText} />
+      ) : onPress && open !== undefined ? (
         <Icon name={open ? "caretUp" : "caretDown"} size={16} color={Colors.tertiaryText} />
       ) : null}
     </Pressable>
@@ -373,6 +462,19 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     marginTop: 2,
   },
+  previewBox: {
+    marginTop: 36,
+    marginHorizontal: Spacing.gutter,
+    padding: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.champagne,
+  },
+  previewLabel: { ...Typography.house, fontSize: 10, color: Colors.caption },
+  previewText: { ...Typography.footnote, color: Colors.secondaryText, marginTop: 4 },
+  previewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  previewChip: { borderWidth: 1, borderColor: Colors.ink, paddingHorizontal: 12, paddingVertical: 8 },
+  previewChipText: { fontFamily: Fonts.sansMedium, fontSize: 12.5, color: Colors.ink },
   footer: {
     ...Typography.caption1,
     color: Colors.tertiaryText,

@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { addDays, addMonths, format } from 'date-fns';
 
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
+import { Redirect } from 'expo-router';
 import { CreateOrderFormData } from '@/types';
 import { BorderRadius, Colors, ControlHeight, Fonts, Spacing, Typography } from '@/constants/theme';
 import { ClientStep } from '@/components/create-order/ClientStep';
@@ -53,7 +55,14 @@ const initialFormData = (): CreateOrderFormData => ({
   attachments: [],
 });
 
+// Read-only after the trial ends: adding goes to the plans screen instead.
 export default function CreateOrderScreen() {
+  const { locked } = useAuth();
+  if (locked) return <Redirect href={{ pathname: '/account/plans', params: { locked: '1' } }} />;
+  return <CreateOrderScreenInner />;
+}
+
+function CreateOrderScreenInner() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   // Pin the screen to the area above the phone's keyboard so nothing slides out of view.

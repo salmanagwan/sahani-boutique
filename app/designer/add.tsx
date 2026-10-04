@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
+import { Redirect } from 'expo-router';
 import { Colors, Fonts, Spacing, Typography } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Input } from '@/components/ui/Input';
@@ -11,7 +13,14 @@ import { Button } from '@/components/ui/Button';
 import { PhotoField } from '@/components/create-order/PhotoField';
 import { EmojiPicker, HOUSE_EMOJIS } from '@/components/designers/DesignerCard';
 
+// Read-only after the trial ends: adding goes to the plans screen instead.
 export default function AddDesignerScreen() {
+  const { locked } = useAuth();
+  if (locked) return <Redirect href={{ pathname: '/account/plans', params: { locked: '1' } }} />;
+  return <AddDesignerScreenInner />;
+}
+
+function AddDesignerScreenInner() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addDesigner } = useApp();

@@ -4,12 +4,14 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { OrderStatus, OrderWithRelations } from '@/types';
 import { Colors, Divider, Fonts, STATUS_CONFIG, Typography } from '@/constants/theme';
 import { FilterChips } from '@/components/ui/FilterChips';
 import { OrderRow } from '@/components/orders/OrderRow';
 import { StatusSheet } from '@/components/orders/StatusSheet';
 import { AddButton, BarIcon, TopBar } from '@/components/ui/TopBar';
+import { TrialPrompts, TrialStrip } from '@/components/account/Trial';
 
 /** Hairline between rows, starting at the text column: 20 gutter + 90 photo + 18 gap. */
 function RowDivider() {
@@ -40,9 +42,11 @@ export default function OrdersScreen() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  const { locked } = useAuth();
   const changeStatus = (order: OrderWithRelations, status: OrderStatus) => {
     updateOrderStatus(order.id, status);
     setPicking(null);
+    if (locked) return; // read-only: the plans screen opens instead
     setToast(`${order.orderNumber} moved to ${STATUS_CONFIG[status].label}`);
   };
 
@@ -85,6 +89,7 @@ export default function OrdersScreen() {
       left={<BarIcon name="search" onPress={toggleSearch} label="Search orders" />}
       right={<AddButton onPress={() => router.push('/order/create')} label="New order" />}
     >
+      <TrialStrip />
       {searching && (
         <View style={styles.searchRow}>
           <TextInput
@@ -142,6 +147,7 @@ export default function OrdersScreen() {
       />
       {/* Header and filters stay put; the list scrolls underneath. */}
       {header}
+      <TrialPrompts />
       <StatusSheet order={picking} onClose={() => setPicking(null)} onSelect={changeStatus} />
       {toast && (
         <View style={styles.toast} pointerEvents="none" accessibilityLiveRegion="polite">
