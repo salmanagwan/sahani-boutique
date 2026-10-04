@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     maxWidth: Platform.OS === 'web' ? 430 : undefined,
     alignSelf: 'center',
     backgroundColor: Colors.background,
-    ...(Platform.OS === 'web' ? { minHeight: '100vh' as unknown as number } : {}),
+    ...(Platform.OS === 'web' ? { height: '100dvh' as unknown as number } : {}),
   },
   splash: {
     backgroundColor: Colors.background,

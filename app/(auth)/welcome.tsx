@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, Spacing, Typography } from '@/constants/theme';
@@ -11,7 +11,12 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
+    <ScrollView
+      style={styles.page}
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+    >
       <View style={styles.brand}>
         <LogoMark size={64} />
         <Text style={styles.word}>SAHANI</Text>
@@ -23,18 +28,18 @@ export default function WelcomeScreen() {
         <Button title="Log in" variant="secondary" onPress={() => router.push('/log-in')} style={{ marginTop: 12 }} />
         <Text style={styles.small}>{TRIAL_DAYS} days free. No card needed.</Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: Colors.background },
   container: {
-    flex: 1,
-    backgroundColor: Colors.background,
+    flexGrow: 1,
     paddingHorizontal: Spacing.gutter + 4,
     justifyContent: 'space-between',
   },
-  brand: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  brand: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 },
   word: {
     fontFamily: Fonts.display,
     fontSize: 40,
