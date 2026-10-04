@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { BorderRadius, Colors, ControlHeight, Fonts, Spacing, Typography } from '@/constants/theme';
 import { Input } from '@/components/ui/Input';
 import { TOP_BAR_GAP, TopBar } from '@/components/ui/TopBar';
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
     updateBoutiqueSettings,
     updateNotificationPreferences,
   } = useApp();
+  const { account, trialDaysLeft, logOut } = useAuth();
 
   const [open, setOpen] = useState<Open>(null);
   const [headerH, setHeaderH] = useState(70);
@@ -56,6 +58,19 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Account */}
+        <Group title="Account">
+          <Row title="Free trial" detail="Choose a plan before it ends to keep adding orders" value={trialDaysLeft === 1 ? '1 day left' : `${trialDaysLeft} days left`} />
+          <Row title={account?.name || 'Signed in'} detail={account?.email} />
+          <Pressable
+            onPress={logOut}
+            style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.rowTitle, { fontFamily: Fonts.sansMedium }]}>Log out</Text>
+          </Pressable>
+        </Group>
 
         {/* Boutique */}
         <Group title="Boutique">

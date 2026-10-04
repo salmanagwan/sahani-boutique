@@ -12,6 +12,8 @@ import { CheckIcon } from 'phosphor-react-native/src/icons/Check';
 import { DownloadSimpleIcon } from 'phosphor-react-native/src/icons/DownloadSimple';
 import { DressIcon } from 'phosphor-react-native/src/icons/Dress';
 import { EnvelopeSimpleIcon } from 'phosphor-react-native/src/icons/EnvelopeSimple';
+import { EyeIcon } from 'phosphor-react-native/src/icons/Eye';
+import { EyeSlashIcon } from 'phosphor-react-native/src/icons/EyeSlash';
 import { GearSixIcon } from 'phosphor-react-native/src/icons/GearSix';
 import { ImageSquareIcon } from 'phosphor-react-native/src/icons/ImageSquare';
 import { LinkSimpleIcon } from 'phosphor-react-native/src/icons/LinkSimple';
@@ -36,6 +38,8 @@ const ICONS = {
   designers: DressIcon,
   email: EnvelopeSimpleIcon,
   settings: GearSixIcon,
+  eye: EyeIcon,
+  eyeSlash: EyeSlashIcon,
   image: ImageSquareIcon,
   link: LinkSimpleIcon,
   search: MagnifyingGlassIcon,

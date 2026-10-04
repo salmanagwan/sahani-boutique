@@ -6,7 +6,8 @@ import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { AppProvider } from '@/context/AppContext';
+import { AppProvider, useApp } from '@/context/AppContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Colors, Fonts } from '@/constants/theme';
 import { TenorSans_400Regular } from '@expo-google-fonts/tenor-sans';
 import {
@@ -73,6 +74,43 @@ function MaisonSplash({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
+// Signed out, only the welcome and sign-in screens exist. Signed in, only the app does.
+// Flipping the session moves between the two without any manual redirects.
+function AppStack() {
+  const { account } = useAuth();
+  const { boutiqueSettings, updateBoutiqueSettings } = useApp();
+  const signedIn = Boolean(account?.verified);
+
+  // The boutique named at sign up is the one the app shows.
+  useEffect(() => {
+    if (!account) return;
+    if (boutiqueSettings.name !== account.boutique || boutiqueSettings.email !== account.email) {
+      updateBoutiqueSettings({ name: account.boutique, email: account.email });
+    }
+  }, [account?.boutique, account?.email]);
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: Colors.background },
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Protected guard={signedIn}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="order/create" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="order/[id]" />
+        <Stack.Screen name="designer/add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="designer/[id]" />
+      </Stack.Protected>
+      <Stack.Protected guard={!signedIn}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+    </Stack>
+  );
+}
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     TenorSans_400Regular,
@@ -102,22 +140,12 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      <AuthProvider>
       <AppProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: Colors.background },
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="order/create" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="order/[id]" />
-          <Stack.Screen name="designer/add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="designer/[id]" />
-        </Stack>
+        <AppStack />
         {showSplash && <MaisonSplash onDismiss={() => setShowSplash(false)} />}
       </AppProvider>
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }
